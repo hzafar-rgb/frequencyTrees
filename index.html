@@ -1,0 +1,1482 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Frequency Trees & Probability — Classroom Smartboard App</title>
+  <!-- Tailwind CSS -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <!-- Google Fonts: Inter for UI/textbook clarity & STIX Two Text for mathematical P(...) notation -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=STIX+Two+Text:ital,wght@0,600;0,700;1,600;1,700&display=swap" rel="stylesheet">
+
+  <style>
+    :root {
+      --zoom-scale: 1;
+      --tree-teal: #49a0a6;
+      --tree-teal-dark: #2c7a7b;
+      --highlight-amber: #f59e0b;
+      --highlight-emerald: #10b981;
+      --highlight-indigo: #4f46e5;
+    }
+
+    body {
+      font-family: 'Inter', system-ui, -apple-system, sans-serif;
+      background-color: #f8fafc;
+      color: #0f172a;
+      overflow-x: hidden;
+    }
+
+    /* Mathematical P(...) styling matching GCSE textbooks */
+    .math-p {
+      font-family: 'STIX Two Text', 'Times New Roman', serif;
+      font-style: italic;
+      font-weight: 700;
+      letter-spacing: 0.01em;
+    }
+
+    .math-paren {
+      font-family: 'Inter', sans-serif;
+      font-style: normal;
+      font-weight: 600;
+    }
+
+    /* Custom scalable container for classroom board projection */
+    .board-stage {
+      font-size: calc(1rem * var(--zoom-scale));
+    }
+
+    /* SVG Tree Node & Branch Transitions */
+    .tree-branch {
+      stroke: var(--tree-teal);
+      stroke-width: 4.5;
+      stroke-linecap: round;
+      transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+    }
+
+    .tree-branch.branch-active {
+      stroke: #d97706;
+      stroke-width: 6.5;
+      filter: drop-shadow(0 0 6px rgba(245, 158, 11, 0.45));
+    }
+
+    .tree-node-circle {
+      fill: #ffffff;
+      stroke: var(--tree-teal);
+      stroke-width: 4.5;
+      transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+      cursor: pointer;
+    }
+
+    .tree-node-group:hover .tree-node-circle {
+      stroke-width: 6;
+      filter: drop-shadow(0 4px 10px rgba(73, 160, 166, 0.28));
+    }
+
+    /* Highlight states for visual scaffolding */
+    .node-highlight-target .tree-node-circle {
+      fill: #fffbeb;
+      stroke: #d97706;
+      stroke-width: 6.5;
+      filter: drop-shadow(0 0 14px rgba(245, 158, 11, 0.55));
+    }
+
+    .node-highlight-total .tree-node-circle {
+      fill: #eef2ff;
+      stroke: #4f46e5;
+      stroke-width: 6.5;
+      filter: drop-shadow(0 0 14px rgba(79, 70, 229, 0.45));
+    }
+
+    .node-highlight-manual .tree-node-circle {
+      fill: #ecfdf5;
+      stroke: #059669;
+      stroke-width: 6.5;
+      filter: drop-shadow(0 0 12px rgba(16, 185, 129, 0.5));
+    }
+
+    .tree-node-halo {
+      fill: none;
+      stroke: transparent;
+      stroke-width: 0;
+      pointer-events: none;
+      transition: stroke-width 0.2s ease, stroke 0.2s ease;
+    }
+
+    .node-highlight-target .tree-node-halo {
+      stroke: rgba(245, 158, 11, 0.35);
+      stroke-width: 10;
+    }
+
+    .node-highlight-total .tree-node-halo {
+      stroke: rgba(79, 70, 229, 0.3);
+      stroke-width: 10;
+    }
+
+    .node-highlight-manual .tree-node-halo {
+      stroke: rgba(16, 185, 129, 0.3);
+      stroke-width: 10;
+    }
+
+    /* Question row active highlight */
+    .question-row {
+      transition: all 0.18s ease;
+      padding: 3px 8px;
+      min-height: 31px;
+      overflow: visible;
+    }
+    .question-row.row-focused {
+      background-color: #fffbeb;
+      border-color: #fcd34d;
+      box-shadow: 0 2px 8px -2px rgba(245, 158, 11, 0.2);
+    }
+
+    /* Compact Card & List Layout for Right Column */
+    .qa-card {
+      padding: 8px 12px;
+      overflow: visible;
+    }
+    .qa-header {
+      margin-bottom: 4px;
+      padding-bottom: 4px;
+    }
+    .qa-list {
+      display: flex;
+      flex-direction: column;
+      gap: 3px;
+      overflow: visible;
+    }
+
+    /* Compact Reveal Pill & Stacked Fraction Styling for Working Out */
+    .reveal-pill {
+      padding: 2px 8px;
+      gap: 5px;
+      line-height: 1.0;
+      min-height: 26px;
+    }
+    .frac {
+      display: inline-flex;
+      flex-direction: column;
+      align-items: center;
+      vertical-align: middle;
+      margin: 0 0.12rem;
+      line-height: 1.0;
+      font-size: 0.78rem;
+    }
+    .frac-num {
+      border-bottom: 1.5px solid currentColor;
+      padding: 0 0.2rem 1px;
+      font-weight: 700;
+    }
+    .frac-den {
+      padding: 1px 0.2rem 0;
+      font-weight: 700;
+    }
+  </style>
+</head>
+<body class="min-h-screen lg:h-screen w-screen flex flex-col select-none bg-slate-50 text-slate-900 overflow-x-hidden lg:overflow-y-auto">
+
+  <!-- TOP CLASSROOM NAVIGATION & TEACHER TOOLBAR (COMPACT) -->
+  <header class="bg-white border-b border-slate-200 px-3 py-1.5 flex flex-wrap items-center justify-between gap-2 shrink-0 shadow-sm z-20">
+    <!-- Left: Brand & Page Question Tabs -->
+    <div class="flex items-center gap-1.5 flex-wrap">
+      <div class="flex items-center gap-1.5 pr-2 border-r border-slate-200">
+        <div class="w-7 h-7 rounded-md bg-teal-600 flex items-center justify-center text-white font-bold text-xs shadow-sm">
+          FT
+        </div>
+        <span class="font-bold text-slate-800 text-xs sm:text-sm hidden xl:inline">Frequency Trees</span>
+      </div>
+
+      <!-- Prev Page Button -->
+      <button id="prevPageBtn" onclick="changePage(-1)" title="Previous Question (Left Arrow)"
+        class="p-1 rounded-md border border-slate-200 hover:bg-slate-100 text-slate-600 transition active:scale-95">
+        <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M15 19l-7-7 7-7"/>
+        </svg>
+      </button>
+
+      <!-- 5 Context Tabs (1 Question Per Page) -->
+      <nav id="questionTabs" class="flex items-center gap-1" aria-label="Question Selector">
+        <!-- Populated dynamically by JS -->
+      </nav>
+
+      <!-- Next Page Button -->
+      <button id="nextPageBtn" onclick="changePage(1)" title="Next Question (Right Arrow)"
+        class="p-1 rounded-md border border-slate-200 hover:bg-slate-100 text-slate-600 transition active:scale-95">
+        <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7"/>
+        </svg>
+      </button>
+    </div>
+
+    <!-- Right: Smartboard Controls -->
+    <div class="flex items-center gap-1.5 flex-wrap">
+      <!-- Generate New Numbers Button -->
+      <button onclick="generateNewNumbers()" title="Generate new random numbers with exact 2-decimal-place probabilities"
+        class="inline-flex items-center gap-1 px-2.5 py-1 rounded-md text-xs font-semibold bg-indigo-50 text-indigo-700 border border-indigo-200 hover:bg-indigo-100 transition active:scale-95">
+        <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2.2" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/>
+        </svg>
+        <span>New Numbers</span>
+      </button>
+
+      <!-- Show/Hide Working Toggle -->
+      <button id="workingToggleBtn" onclick="toggleWorking()" title="Toggle step-by-step fraction & addition working"
+        class="inline-flex items-center gap-1 px-2.5 py-1 rounded-md text-xs font-semibold bg-teal-50 text-teal-800 border border-teal-200 hover:bg-teal-100 transition active:scale-95">
+        <svg class="w-3.5 h-3.5 text-teal-600" fill="none" stroke="currentColor" stroke-width="2.2" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M9 7h6m0 10v-3m-3 3h.01M9 17h.01M9 14h.01M12 14h.01M15 11h.01M12 11h.01M9 11h.01M7 21h10a2 2 0 002-2V5a2 2 0 00-2-2H7a2 2 0 00-2 2v14a2 2 0 002 2z"/>
+        </svg>
+        <span id="workingToggleText">Working: ON</span>
+      </button>
+
+      <!-- Reveal All / Hide All -->
+      <div class="flex items-center rounded-md border border-slate-200 bg-slate-50 p-0.5">
+        <button onclick="revealAll()"
+          class="px-2 py-0.5 rounded text-xs font-semibold text-emerald-700 hover:bg-white hover:shadow-sm transition">
+          Reveal All
+        </button>
+        <div class="w-px h-3.5 bg-slate-300"></div>
+        <button onclick="resetAll()"
+          class="px-2 py-0.5 rounded text-xs font-semibold text-slate-600 hover:bg-white hover:shadow-sm transition">
+          Hide All
+        </button>
+      </div>
+
+      <!-- Text Size Controls -->
+      <div class="hidden md:flex items-center rounded-md border border-slate-200 bg-white">
+        <button onclick="adjustZoom(-0.06)" title="Decrease Board Text Size"
+          class="px-2 py-0.5 text-xs font-bold text-slate-600 hover:bg-slate-100 rounded-l-md transition">
+          A-
+        </button>
+        <div class="w-px h-3.5 bg-slate-200"></div>
+        <button onclick="adjustZoom(0.06)" title="Increase Board Text Size"
+          class="px-2 py-0.5 text-xs font-bold text-slate-800 hover:bg-slate-100 rounded-r-md transition">
+          A+
+        </button>
+      </div>
+
+      <!-- Fullscreen Button -->
+      <button onclick="toggleFullScreen()" title="Toggle Fullscreen Projection"
+        class="p-1 rounded-md border border-slate-200 bg-white hover:bg-slate-100 text-slate-700 transition">
+        <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2.2" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M4 8V4m0 0h4M4 4l5 5m11-1V4m0 0h-4m4 0l-5 5M4 16v4m0 0h4m-4 0l5-5m11 5l-5-5m5 5v-4m0 4h-4"/>
+        </svg>
+      </button>
+    </div>
+  </header>
+
+  <!-- MAIN WHITEBOARD WORKSPACE (16:9 WIDESCREEN OPTIMISED, COMPACT) -->
+  <main class="board-stage flex-1 flex flex-col px-3 py-2 md:px-5 md:py-2.5 max-w-[1760px] w-full mx-auto gap-2 overflow-visible">
+
+    <!-- TOP QUESTION PROMPT BANNER (Compact single-line context banner) -->
+    <div class="bg-white rounded-xl border border-slate-200/90 px-3.5 py-1.5 shadow-sm flex items-center justify-between gap-3 shrink-0">
+      <div class="flex items-baseline gap-2">
+        <span id="questionNumberLabel" class="text-base md:text-lg font-extrabold text-slate-900">1.</span>
+        <p id="questionPromptText" class="text-sm sm:text-base md:text-lg font-medium text-slate-800 leading-snug">
+          <!-- Populated by JS -->
+        </p>
+      </div>
+      <!-- Subtle Teacher Mode Pill: Click nodes to hide/reveal for starter extension -->
+      <div class="hidden sm:flex items-center gap-2 shrink-0">
+        <button id="treeMaskModeBtn" onclick="toggleTreeMaskMode()"
+          title="When enabled, clicking circles on the tree hides/reveals their numbers for a missing-number starter activity"
+          class="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-md text-xs font-semibold border border-slate-200 text-slate-600 bg-slate-50 hover:bg-slate-100 transition">
+          <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/>
+            <path stroke-linecap="round" stroke-linejoin="round" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/>
+          </svg>
+          <span id="treeMaskModeText">Tree Numbers: All Visible</span>
+        </button>
+      </div>
+    </div>
+
+    <!-- MAIN 2-COLUMN SECTION: LEFT (43%) = SVG FREQUENCY TREE + PART c | RIGHT (57%) = QUESTIONS a & b -->
+    <div class="flex-1 flex flex-col lg:flex-row gap-3 items-stretch min-h-0 overflow-visible">
+
+      <!-- LEFT COLUMN (43% width on large screens): INTERACTIVE SVG FREQUENCY TREE + PART c -->
+      <div class="w-full lg:w-[43%] flex flex-col gap-2 justify-between min-h-0">
+
+        <!-- SVG FREQUENCY TREE CARD -->
+        <div class="bg-white rounded-xl border border-slate-200/90 shadow-sm px-3 py-2 flex-1 flex flex-col justify-between relative overflow-hidden">
+          
+          <!-- Dedicated Spotlight Banner Slot (Above SVG so it never overlaps top nodes) -->
+          <div class="flex items-center justify-between gap-2 pb-1.5 border-b border-slate-100 shrink-0 min-h-[2rem]">
+            <div id="scaffoldingBanner" class="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-slate-100 text-slate-600 border border-slate-200 transition-colors">
+              <span class="w-2 h-2 rounded-full bg-teal-500 shrink-0"></span>
+              <span id="scaffoldingText">Tip: Click any question’s spotlight icon (◎) or click tree circles to highlight values.</span>
+            </div>
+
+            <button id="clearFocusBtn" onclick="clearFocus()" class="hidden px-2.5 py-0.5 rounded-full text-xs font-semibold bg-amber-100 text-amber-900 hover:bg-amber-200 transition shrink-0">
+              Clear ✕
+            </button>
+          </div>
+
+          <!-- SVG FREQUENCY TREE (Explicit coordinates without SVG/CSS transform overrides) -->
+          <div class="flex-1 flex items-center justify-center w-full min-h-[220px] py-0.5">
+            <svg id="frequencyTreeSvg" viewBox="0 0 760 440" class="w-full h-full max-h-[360px] select-none" aria-label="Frequency Tree Diagram">
+              <defs>
+                <filter id="badgeShadow" x="-10%" y="-10%" width="120%" height="120%">
+                  <feDropShadow dx="0" dy="2" stdDeviation="2" flood-opacity="0.12"/>
+                </filter>
+              </defs>
+
+              <!-- CONNECTING BRANCHES (Explicit coordinates) -->
+              <!-- Root (80, 225) to Branch 1 (303, 125) -->
+              <line id="line-b1" x1="128" y1="225" x2="255" y2="125" class="tree-branch" />
+              <!-- Root (80, 225) to Branch 2 (303, 325) -->
+              <line id="line-b2" x1="128" y1="225" x2="255" y2="325" class="tree-branch" />
+
+              <!-- Branch 1 (303, 125) to Leaf 1A (580, 72) -->
+              <line id="line-l1a" x1="351" y1="125" x2="534" y2="72" class="tree-branch" />
+              <!-- Branch 1 (303, 125) to Leaf 1B (580, 178) -->
+              <line id="line-l1b" x1="351" y1="125" x2="534" y2="178" class="tree-branch" />
+
+              <!-- Branch 2 (303, 325) to Leaf 2A (580, 272) -->
+              <line id="line-l2a" x1="351" y1="325" x2="534" y2="272" class="tree-branch" />
+              <!-- Branch 2 (303, 325) to Leaf 2B (580, 378) -->
+              <line id="line-l2b" x1="351" y1="325" x2="534" y2="378" class="tree-branch" />
+
+              <!-- BRANCH LABELS (Explicit x, y coordinates) -->
+              <!-- Level 1 Labels -->
+              <text id="svg-label-b1" x="182" y="148" text-anchor="end" class="fill-slate-800 text-[24px] font-medium"></text>
+              <text id="svg-label-b2" x="182" y="314" text-anchor="end" class="fill-slate-800 text-[24px] font-medium"></text>
+
+              <!-- Level 2 Labels (Top pair) -->
+              <text id="svg-label-1a-line1" x="415" y="62" class="fill-slate-800 text-[22px] font-medium"></text>
+              <text id="svg-label-1a-line2" x="415" y="87" class="fill-slate-800 text-[22px] font-medium"></text>
+
+              <text id="svg-label-1b-line1" x="415" y="175" class="fill-slate-800 text-[22px] font-medium"></text>
+              <text id="svg-label-1b-line2" x="415" y="200" class="fill-slate-800 text-[22px] font-medium"></text>
+
+              <!-- Level 2 Labels (Bottom pair) -->
+              <text id="svg-label-2a-line1" x="415" y="262" class="fill-slate-800 text-[22px] font-medium"></text>
+              <text id="svg-label-2a-line2" x="415" y="287" class="fill-slate-800 text-[22px] font-medium"></text>
+
+              <text id="svg-label-2b-line1" x="415" y="375" class="fill-slate-800 text-[22px] font-medium"></text>
+              <text id="svg-label-2b-line2" x="415" y="400" class="fill-slate-800 text-[22px] font-medium"></text>
+
+              <!-- ADDITION CONNECTOR OVERLAY (Explicit coordinates) -->
+              <g id="additionOverlayGroup" class="hidden">
+                <path id="additionArcPath" d="" fill="none" stroke="#d97706" stroke-width="3.5" stroke-dasharray="7 5" />
+                <rect id="additionBadgeRect" x="646" y="152" width="92" height="40" rx="20" fill="#fef3c7" stroke="#d97706" stroke-width="2.5" filter="url(#badgeShadow)" />
+                <text id="additionBadgeText" x="692" y="178" text-anchor="middle" class="fill-amber-900 text-[18px] font-extrabold">+ Add</text>
+              </g>
+
+              <!-- TREE NODES (Explicit cx, cy, x, y coordinates so nodes never move) -->
+              <!-- ROOT NODE (cx=80, cy=225) -->
+              <g id="node-root" class="tree-node-group" onclick="handleNodeClick('root')">
+                <circle cx="80" cy="225" r="54" class="tree-node-halo" />
+                <circle cx="80" cy="225" r="48" class="tree-node-circle" />
+                <text id="val-root" x="80" y="235" text-anchor="middle" class="fill-slate-900 text-[29px] font-semibold pointer-events-none"></text>
+                <g id="badge-root" class="hidden" filter="url(#badgeShadow)">
+                  <rect x="26" y="147" width="108" height="26" rx="13" fill="#4f46e5" />
+                  <text id="badge-text-root" x="80" y="164" text-anchor="middle" class="fill-white text-[13px] font-bold">Total</text>
+                </g>
+              </g>
+
+              <!-- BRANCH 1 NODE (cx=303, cy=125) -->
+              <g id="node-b1" class="tree-node-group" onclick="handleNodeClick('b1')">
+                <circle cx="303" cy="125" r="54" class="tree-node-halo" />
+                <circle cx="303" cy="125" r="48" class="tree-node-circle" />
+                <text id="val-b1" x="303" y="135" text-anchor="middle" class="fill-slate-900 text-[29px] font-semibold pointer-events-none"></text>
+                <g id="badge-b1" class="hidden" filter="url(#badgeShadow)">
+                  <rect x="247" y="47" width="112" height="26" rx="13" fill="#d97706" />
+                  <text id="badge-text-b1" x="303" y="64" text-anchor="middle" class="fill-white text-[13px] font-bold">Target</text>
+                </g>
+              </g>
+
+              <!-- BRANCH 2 NODE (cx=303, cy=325) -->
+              <g id="node-b2" class="tree-node-group" onclick="handleNodeClick('b2')">
+                <circle cx="303" cy="325" r="54" class="tree-node-halo" />
+                <circle cx="303" cy="325" r="48" class="tree-node-circle" />
+                <text id="val-b2" x="303" y="335" text-anchor="middle" class="fill-slate-900 text-[29px] font-semibold pointer-events-none"></text>
+                <g id="badge-b2" class="hidden" filter="url(#badgeShadow)">
+                  <rect x="247" y="247" width="112" height="26" rx="13" fill="#d97706" />
+                  <text id="badge-text-b2" x="303" y="264" text-anchor="middle" class="fill-white text-[13px] font-bold">Target</text>
+                </g>
+              </g>
+
+              <!-- LEAF 1A NODE (cx=580, cy=72) -->
+              <g id="node-l1a" class="tree-node-group" onclick="handleNodeClick('l1a')">
+                <circle cx="580" cy="72" r="52" class="tree-node-halo" />
+                <circle cx="580" cy="72" r="46" class="tree-node-circle" />
+                <text id="val-l1a" x="580" y="82" text-anchor="middle" class="fill-slate-900 text-[28px] font-semibold pointer-events-none"></text>
+              </g>
+
+              <!-- LEAF 1B NODE (cx=580, cy=178) -->
+              <g id="node-l1b" class="tree-node-group" onclick="handleNodeClick('l1b')">
+                <circle cx="580" cy="178" r="52" class="tree-node-halo" />
+                <circle cx="580" cy="178" r="46" class="tree-node-circle" />
+                <text id="val-l1b" x="580" y="188" text-anchor="middle" class="fill-slate-900 text-[28px] font-semibold pointer-events-none"></text>
+              </g>
+
+              <!-- LEAF 2A NODE (cx=580, cy=272) -->
+              <g id="node-l2a" class="tree-node-group" onclick="handleNodeClick('l2a')">
+                <circle cx="580" cy="272" r="52" class="tree-node-halo" />
+                <circle cx="580" cy="272" r="46" class="tree-node-circle" />
+                <text id="val-l2a" x="580" y="282" text-anchor="middle" class="fill-slate-900 text-[28px] font-semibold pointer-events-none"></text>
+              </g>
+
+              <!-- LEAF 2B NODE (cx=580, cy=378) -->
+              <g id="node-l2b" class="tree-node-group" onclick="handleNodeClick('l2b')">
+                <circle cx="580" cy="378" r="52" class="tree-node-halo" />
+                <circle cx="580" cy="378" r="46" class="tree-node-circle" />
+                <text id="val-l2b" x="580" y="388" text-anchor="middle" class="fill-slate-900 text-[28px] font-semibold pointer-events-none"></text>
+              </g>
+            </svg>
+          </div>
+
+          <!-- Bottom Legend inside SVG Card -->
+          <div class="flex flex-wrap items-center justify-between gap-2 pt-1.5 border-t border-slate-100 text-[11px] text-slate-500">
+            <div class="flex items-center gap-3">
+              <span class="inline-flex items-center gap-1">
+                <span class="w-2.5 h-2.5 rounded-full border-2 border-amber-500 bg-amber-50"></span>
+                Selected Frequency
+              </span>
+              <span class="inline-flex items-center gap-1">
+                <span class="w-2.5 h-2.5 rounded-full border-2 border-indigo-600 bg-indigo-50"></span>
+                Total (<span id="legendTotalVal" class="font-bold text-slate-700">200</span>)
+              </span>
+            </div>
+            <span class="text-slate-400 hidden sm:inline">← / → switch question</span>
+          </div>
+        </div>
+
+        <!-- PART c CARD (Inside Left Column below Frequency Tree) -->
+        <section id="partCCard" class="bg-white rounded-xl border border-slate-200/90 shadow-sm px-3 py-2 shrink-0 transition-all">
+          <div class="flex flex-col gap-1.5">
+            <!-- Question Text -->
+            <div class="flex items-center justify-between gap-2">
+              <div class="flex items-center gap-2">
+                <button onclick="focusQuestion('c')" title="Highlight parts b(ii) and b(iii) on the tree"
+                  class="w-6 h-6 rounded-md border border-slate-200 bg-slate-50 hover:bg-amber-50 hover:border-amber-300 text-slate-600 hover:text-amber-700 flex items-center justify-center transition shrink-0">
+                  <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2.2" viewBox="0 0 24 24">
+                    <circle cx="12" cy="12" r="3"/>
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M12 2v3m0 14v3m10-10h-3M5 12H2"/>
+                  </svg>
+                </button>
+                <div class="flex items-baseline gap-1.5">
+                  <span class="text-sm md:text-base font-bold text-slate-900">c.</span>
+                  <p class="text-sm md:text-base font-medium text-slate-800">
+                    Explain why Part <span class="font-semibold">bii.</span> and <span class="font-semibold">biii.</span> sum to 1.
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            <!-- Answer / Reveal Area for Part c -->
+            <div id="partCRevealBox" onclick="toggleReveal('c')"
+              class="cursor-pointer rounded-lg border transition-all px-3 py-1.5 flex items-center justify-between gap-2 w-full">
+              <!-- Populated by JS -->
+            </div>
+          </div>
+        </section>
+
+      </div>
+
+      <!-- RIGHT COLUMN (57% width on large screens): QUESTIONS PART a & PART b -->
+      <div class="w-full lg:w-[57%] flex flex-col gap-2.5 justify-start overflow-visible">
+
+        <!-- PART A CARD: Reading & Adding Frequencies from the Tree -->
+        <section class="qa-card bg-white rounded-xl border border-slate-200/90 shadow-sm flex flex-col justify-start">
+          <div class="qa-header flex items-center justify-between gap-2 border-b border-slate-100">
+            <div class="flex items-baseline gap-2">
+              <span class="text-base md:text-lg font-bold text-slate-900">a.</span>
+              <h2 id="partAHeader" class="text-base md:text-lg font-semibold text-slate-800">
+                How many pupils
+              </h2>
+            </div>
+            <button onclick="revealSection('a')" class="text-xs font-semibold px-2.5 py-0.5 rounded-md bg-slate-100 hover:bg-teal-50 hover:text-teal-700 text-slate-600 transition">
+              Reveal Part a
+            </button>
+          </div>
+
+          <!-- Sub-questions a.i to a.iv -->
+          <div id="partAList" class="qa-list divide-y divide-slate-100/80">
+            <!-- Populated dynamically by JS -->
+          </div>
+        </section>
+
+        <!-- PART B CARD: Working out Probabilities as Decimals -->
+        <section class="qa-card bg-white rounded-xl border border-slate-200/90 shadow-sm flex flex-col justify-start">
+          <div class="qa-header flex items-center justify-between gap-2 border-b border-slate-100">
+            <div class="flex items-baseline gap-2">
+              <span class="text-base md:text-lg font-bold text-slate-900">b.</span>
+              <h2 class="text-base md:text-lg font-semibold text-slate-800">
+                Work out, as a decimal
+              </h2>
+            </div>
+            <button onclick="revealSection('b')" class="text-xs font-semibold px-2.5 py-0.5 rounded-md bg-slate-100 hover:bg-teal-50 hover:text-teal-700 text-slate-600 transition">
+              Reveal Part b
+            </button>
+          </div>
+
+          <!-- Sub-questions b.i to b.iv -->
+          <div id="partBList" class="qa-list divide-y divide-slate-100/80">
+            <!-- Populated dynamically by JS -->
+          </div>
+        </section>
+
+      </div>
+    </div>
+
+  </main>
+
+  <script>
+    /**
+     * ============================================================================
+     * PRESET QUESTIONS DATASET (5 Contexts at Identical GCSE Difficulty)
+     * Every preset has Total = 100 * k and every node divisible by k so that
+     * all probabilities in Part (b) simplify cleanly to exact 2-decimal-place numbers.
+     * ============================================================================
+     */
+    const QUESTIONS_DATA = [
+      {
+        id: 1,
+        shortTitle: "Q1: School Canteen",
+        prompt: "The frequency tree gives information about the lunch pupils had and which drink they chose.",
+        subjectNoun: "pupils",
+        partAHeader: "How many pupils",
+        branch1Label: "Hot meal",
+        branch2Label: "Packed lunch",
+        outcomeALines: ["water", ""],
+        outcomeBLines: ["juice", ""],
+        outcomeAText: "water",
+        outcomeBText: "juice",
+        // Default preset numbers (Total = 200, k = 2)
+        defaultNumbers: {
+          root: 200,
+          b1: 116,
+          b2: 84,
+          l1a: 82,
+          l1b: 34,
+          l2a: 54,
+          l2b: 30
+        },
+        partAText: {
+          i: "were recorded in total,",
+          ii: "had a packed lunch,",
+          iii: "chose juice,",
+          iv: "had a packed lunch and chose water?"
+        },
+        partBText: {
+          i: "hot meal",
+          ii: "water",
+          iii: "juice",
+          iv: "packed lunch and juice"
+        },
+        partCExplanation: (q, nums) => {
+          const pA = ((nums.l1a + nums.l2a) / nums.root).toFixed(2);
+          const pB = ((nums.l1b + nums.l2b) / nums.root).toFixed(2);
+          return `Every pupil chose either <strong class="text-teal-800">water</strong> or <strong class="text-teal-800">juice</strong> and could not choose both (the outcomes are <span class="underline decoration-amber-400 font-bold">mutually exclusive</span> and <span class="underline decoration-amber-400 font-bold">exhaustive</span>), so <span class="font-mono font-bold text-emerald-700">${pA} + ${pB} = 1</span>.`;
+        }
+      },
+      {
+        id: 2,
+        shortTitle: "Q2: Cinema Snacks",
+        prompt: "The frequency tree gives information about the ticket type cinema-goers bought and which snack they chose.",
+        subjectNoun: "cinema-goers",
+        partAHeader: "How many cinema-goers",
+        branch1Label: "Adult",
+        branch2Label: "Child",
+        outcomeALines: ["popcorn", ""],
+        outcomeBLines: ["nachos", ""],
+        outcomeAText: "popcorn",
+        outcomeBText: "nachos",
+        // Default preset numbers (Total = 400, k = 4)
+        defaultNumbers: {
+          root: 400,
+          b1: 248,
+          b2: 152,
+          l1a: 172,
+          l1b: 76,
+          l2a: 116,
+          l2b: 36
+        },
+        partAText: {
+          i: "were surveyed in total,",
+          ii: "bought a child ticket,",
+          iii: "chose nachos,",
+          iv: "bought a child ticket and chose popcorn?"
+        },
+        partBText: {
+          i: "adult",
+          ii: "popcorn",
+          iii: "nachos",
+          iv: "child and nachos"
+        },
+        partCExplanation: (q, nums) => {
+          const pA = ((nums.l1a + nums.l2a) / nums.root).toFixed(2);
+          const pB = ((nums.l1b + nums.l2b) / nums.root).toFixed(2);
+          return `Every cinema-goer chose either <strong class="text-teal-800">popcorn</strong> or <strong class="text-teal-800">nachos</strong> and could not choose both (<span class="underline decoration-amber-400 font-bold">mutually exclusive</span> and <span class="underline decoration-amber-400 font-bold">exhaustive</span> events), so <span class="font-mono font-bold text-emerald-700">${pA} + ${pB} = 1</span>.`;
+        }
+      },
+      {
+        id: 3,
+        shortTitle: "Q3: Commuter Survey",
+        prompt: "The frequency tree gives information about how commuters travel to work and when they travel.",
+        subjectNoun: "commuters",
+        partAHeader: "How many commuters",
+        branch1Label: "Train",
+        branch2Label: "Bus",
+        outcomeALines: ["peak", "hours"],
+        outcomeBLines: ["off-peak", "hours"],
+        outcomeAText: "peak hours",
+        outcomeBText: "off-peak hours",
+        // Default preset numbers (Total = 300, k = 3)
+        defaultNumbers: {
+          root: 300,
+          b1: 183,
+          b2: 117,
+          l1a: 138,
+          l1b: 45,
+          l2a: 93,
+          l2b: 24
+        },
+        partAText: {
+          i: "were asked in total,",
+          ii: "travel by bus,",
+          iii: "travel during off-peak hours,",
+          iv: "travel by bus and during peak hours?"
+        },
+        partBText: {
+          i: "train",
+          ii: "peak hours",
+          iii: "off-peak hours",
+          iv: "bus and off-peak hours"
+        },
+        partCExplanation: (q, nums) => {
+          const pA = ((nums.l1a + nums.l2a) / nums.root).toFixed(2);
+          const pB = ((nums.l1b + nums.l2b) / nums.root).toFixed(2);
+          return `Every commuter travels either during <strong class="text-teal-800">peak hours</strong> or <strong class="text-teal-800">off-peak hours</strong> (<span class="underline decoration-amber-400 font-bold">mutually exclusive</span> and <span class="underline decoration-amber-400 font-bold">exhaustive</span> outcomes), so <span class="font-mono font-bold text-emerald-700">${pA} + ${pB} = 1</span>.`;
+        }
+      },
+      {
+        id: 4,
+        shortTitle: "Q4: Gym Sessions",
+        prompt: "The frequency tree gives information about when members visited a gym and which workout they did.",
+        subjectNoun: "gym members",
+        partAHeader: "How many gym members",
+        branch1Label: "Morning",
+        branch2Label: "Evening",
+        outcomeALines: ["cardio", "workout"],
+        outcomeBLines: ["weights", "workout"],
+        outcomeAText: "cardio",
+        outcomeBText: "weights",
+        // Default preset numbers (Total = 500, k = 5)
+        defaultNumbers: {
+          root: 500,
+          b1: 215,
+          b2: 285,
+          l1a: 140,
+          l1b: 75,
+          l2a: 195,
+          l2b: 90
+        },
+        partAText: {
+          i: "were recorded in total,",
+          ii: "visited in the evening,",
+          iii: "did a weights workout,",
+          iv: "visited in the evening and did cardio?"
+        },
+        partBText: {
+          i: "morning",
+          ii: "cardio",
+          iii: "weights",
+          iv: "evening and weights"
+        },
+        partCExplanation: (q, nums) => {
+          const pA = ((nums.l1a + nums.l2a) / nums.root).toFixed(2);
+          const pB = ((nums.l1b + nums.l2b) / nums.root).toFixed(2);
+          return `Every gym member did either <strong class="text-teal-800">cardio</strong> or <strong class="text-teal-800">weights</strong> and not both (<span class="underline decoration-amber-400 font-bold">mutually exclusive</span> and <span class="underline decoration-amber-400 font-bold">exhaustive</span> outcomes), so <span class="font-mono font-bold text-emerald-700">${pA} + ${pB} = 1</span>.`;
+        }
+      },
+      {
+        id: 5,
+        shortTitle: "Q5: Driving Tests",
+        prompt: "The frequency tree gives information about the type of car learners drove and the result of their driving test.",
+        subjectNoun: "learners",
+        partAHeader: "How many learners",
+        branch1Label: "Manual",
+        branch2Label: "Automatic",
+        outcomeALines: ["pass", ""],
+        outcomeBLines: ["fail", ""],
+        outcomeAText: "pass",
+        outcomeBText: "fail",
+        // Default preset numbers (Total = 300, k = 3)
+        defaultNumbers: {
+          root: 300,
+          b1: 192,
+          b2: 108,
+          l1a: 111,
+          l1b: 81,
+          l2a: 75,
+          l2b: 33
+        },
+        partAText: {
+          i: "took the test in total,",
+          ii: "drove an automatic car,",
+          iii: "failed their test,",
+          iv: "drove an automatic car and passed?"
+        },
+        partBText: {
+          i: "manual",
+          ii: "pass",
+          iii: "fail",
+          iv: "automatic and fail"
+        },
+        partCExplanation: (q, nums) => {
+          const pA = ((nums.l1a + nums.l2a) / nums.root).toFixed(2);
+          const pB = ((nums.l1b + nums.l2b) / nums.root).toFixed(2);
+          return `Every learner either <strong class="text-teal-800">passed</strong> or <strong class="text-teal-800">failed</strong> their driving test (<span class="underline decoration-amber-400 font-bold">mutually exclusive</span> and <span class="underline decoration-amber-400 font-bold">exhaustive</span> outcomes), so <span class="font-mono font-bold text-emerald-700">${pA} + ${pB} = 1</span>.`;
+        }
+      }
+    ];
+
+    /**
+     * ============================================================================
+     * APPLICATION STATE
+     * ============================================================================
+     */
+    let currentPageIndex = 0;
+    let showWorking = true;
+    let zoomScale = 1;
+    let activeFocusKey = null; // 'ai','aii','aiii','aiv','bi','bii','biii','biv','c' or null
+    let treeMaskMode = false; // If true, clicking tree circles hides/reveals their numbers
+
+    // Per-page dynamic state (numbers, revealed answers, masked tree nodes, manual highlights)
+    const pageStates = QUESTIONS_DATA.map((q) => ({
+      numbers: { ...q.defaultNumbers },
+      revealed: {
+        ai: false,
+        aii: false,
+        aiii: false,
+        aiv: false,
+        bi: false,
+        bii: false,
+        biii: false,
+        biv: false,
+        c: false
+      },
+      maskedNodes: {
+        root: false,
+        b1: false,
+        b2: false,
+        l1a: false,
+        l1b: false,
+        l2a: false,
+        l2b: false
+      },
+      manualNodeHighlights: {}
+    }));
+
+    /**
+     * ============================================================================
+     * INITIALISATION & RENDERING
+     * ============================================================================
+     */
+    function initApp() {
+      renderTopTabs();
+      renderCurrentPage();
+
+      // Keyboard navigation for smartboard remotes / arrow keys
+      window.addEventListener("keydown", (e) => {
+        if (e.target.tagName === "INPUT" || e.target.tagName === "TEXTAREA") return;
+        if (e.key === "ArrowRight") {
+          changePage(1);
+        } else if (e.key === "ArrowLeft") {
+          changePage(-1);
+        } else if (e.key === "Escape") {
+          clearFocus();
+        }
+      });
+    }
+
+    function renderTopTabs() {
+      const nav = document.getElementById("questionTabs");
+      nav.innerHTML = QUESTIONS_DATA.map((q, idx) => {
+        const isActive = idx === currentPageIndex;
+        return `
+          <button
+            onclick="selectPage(${idx})"
+            class="px-3 py-1.5 rounded-lg text-xs sm:text-sm font-bold transition-all ${
+              isActive
+                ? "bg-teal-600 text-white shadow-sm"
+                : "bg-slate-100 text-slate-600 hover:bg-slate-200"
+            }">
+            ${q.shortTitle}
+          </button>
+        `;
+      }).join("");
+
+      document.getElementById("prevPageBtn").disabled = currentPageIndex === 0;
+      document.getElementById("prevPageBtn").classList.toggle("opacity-40", currentPageIndex === 0);
+      document.getElementById("nextPageBtn").disabled = currentPageIndex === QUESTIONS_DATA.length - 1;
+      document.getElementById("nextPageBtn").classList.toggle("opacity-40", currentPageIndex === QUESTIONS_DATA.length - 1);
+    }
+
+    function selectPage(index) {
+      if (index < 0 || index >= QUESTIONS_DATA.length) return;
+      currentPageIndex = index;
+      activeFocusKey = null;
+      renderTopTabs();
+      renderCurrentPage();
+    }
+
+    function changePage(delta) {
+      const next = currentPageIndex + delta;
+      if (next >= 0 && next < QUESTIONS_DATA.length) {
+        selectPage(next);
+      }
+    }
+
+    /**
+     * Renders the entire current page: Prompt, SVG Tree, Part a, Part b, and Part c
+     */
+    function renderCurrentPage() {
+      const q = QUESTIONS_DATA[currentPageIndex];
+      const state = pageStates[currentPageIndex];
+      const nums = state.numbers;
+
+      // 1. Update Top Prompt Banner
+      document.getElementById("questionNumberLabel").textContent = `${q.id}.`;
+      document.getElementById("questionPromptText").textContent = q.prompt;
+      document.getElementById("partAHeader").textContent = q.partAHeader;
+      document.getElementById("legendTotalVal").textContent = nums.root;
+
+      // 2. Render SVG Frequency Tree Labels & Node Numbers
+      renderSvgTree(q, state);
+
+      // 3. Render Part A Sub-questions
+      renderPartA(q, state);
+
+      // 4. Render Part B Sub-questions
+      renderPartB(q, state);
+
+      // 5. Render Part C Explanation Bar
+      renderPartC(q, state);
+
+      // 6. Apply Visual Scaffolding Highlights on the SVG Tree
+      updateTreeHighlights();
+    }
+
+    /**
+     * Populates the SVG Frequency Tree labels and numbers
+     */
+    function renderSvgTree(q, state) {
+      const nums = state.numbers;
+      const masked = state.maskedNodes;
+
+      // Branch 1 & Branch 2 labels
+      document.getElementById("svg-label-b1").textContent = q.branch1Label;
+      document.getElementById("svg-label-b2").textContent = q.branch2Label;
+
+      // Base Y coordinates for the 4 outcome label pairs
+      const labelBaseY = {
+        "1a": 62,
+        "1b": 175,
+        "2a": 262,
+        "2b": 375
+      };
+
+      // Outcome A & Outcome B 2-line labels on both branches using explicit Y coordinates
+      const setTwoLineLabel = (prefix, lines) => {
+        const l1 = document.getElementById(`svg-label-${prefix}-line1`);
+        const l2 = document.getElementById(`svg-label-${prefix}-line2`);
+        const baseY = labelBaseY[prefix];
+        l1.textContent = lines[0] || "";
+        l2.textContent = lines[1] || "";
+        if (!lines[1]) {
+          l1.setAttribute("y", String(baseY + 14));
+        } else {
+          l1.setAttribute("y", String(baseY));
+          l2.setAttribute("y", String(baseY + 25));
+        }
+      };
+
+      setTwoLineLabel("1a", q.outcomeALines);
+      setTwoLineLabel("1b", q.outcomeBLines);
+      setTwoLineLabel("2a", q.outcomeALines);
+      setTwoLineLabel("2b", q.outcomeBLines);
+
+      // Node values (or '?' if masked by teacher in mask mode)
+      const nodeIds = ["root", "b1", "b2", "l1a", "l1b", "l2a", "l2b"];
+      nodeIds.forEach((id) => {
+        const textEl = document.getElementById(`val-${id}`);
+        if (masked[id]) {
+          textEl.textContent = "?";
+          textEl.classList.add("fill-amber-600", "font-extrabold");
+          textEl.classList.remove("fill-slate-900");
+        } else {
+          textEl.textContent = nums[id];
+          textEl.classList.remove("fill-amber-600", "font-extrabold");
+          textEl.classList.add("fill-slate-900");
+        }
+      });
+    }
+
+    /**
+     * Computes answers and working out for every sub-question of the current page
+     */
+    function getSubQuestionCalculations(nums) {
+      const k = nums.root / 100;
+      const outcomeATotal = nums.l1a + nums.l2a;
+      const outcomeBTotal = nums.l1b + nums.l2b;
+
+      const formatDecimal = (val) => (val / nums.root).toFixed(2);
+
+      const makeFractionWorking = (num, den, addParts = null) => {
+        const hundredNum = Math.round(num / k);
+        const dec = (num / den).toFixed(2);
+        const addPrefix = addParts
+          ? `<span class="text-amber-700 font-semibold text-xs sm:text-sm mr-0.5">${addParts[0]} + ${addParts[1]} = ${num} &rarr;</span>`
+          : "";
+        if (den === 100) {
+          return `${addPrefix}<span class="frac"><span class="frac-num">${num}</span><span class="frac-den">100</span></span> <span class="mx-0.5">=</span> <strong class="text-emerald-700 font-extrabold text-sm sm:text-base">${dec}</strong>`;
+        }
+        return `${addPrefix}<span class="frac"><span class="frac-num">${num}</span><span class="frac-den">${den}</span></span> <span class="mx-0.5 text-slate-400">=</span> <span class="frac text-teal-800"><span class="frac-num">${hundredNum}</span><span class="frac-den">100</span></span> <span class="mx-0.5">=</span> <strong class="text-emerald-700 font-extrabold text-sm sm:text-base">${dec}</strong>`;
+      };
+
+      return {
+        ai: {
+          answer: `${nums.root}`,
+          workingHtml: `<strong class="text-emerald-700 font-extrabold text-sm sm:text-base">${nums.root}</strong>`,
+          targetNodes: ["root"],
+          totalNode: null,
+          branches: [],
+          banner: `Part a(i): Read the total number in the starting left circle (${nums.root}).`
+        },
+        aii: {
+          answer: `${nums.b2}`,
+          workingHtml: `<strong class="text-emerald-700 font-extrabold text-sm sm:text-base">${nums.b2}</strong>`,
+          targetNodes: ["b2"],
+          totalNode: null,
+          branches: ["b2"],
+          banner: `Part a(ii): Follow the lower branch to read the frequency (${nums.b2}).`
+        },
+        aiii: {
+          answer: `${outcomeBTotal}`,
+          workingHtml: showWorking
+            ? `<span class="text-amber-800 font-semibold text-xs sm:text-sm">${nums.l1b} + ${nums.l2b} = </span><strong class="text-emerald-700 font-extrabold text-sm sm:text-base ml-0.5">${outcomeBTotal}</strong>`
+            : `<strong class="text-emerald-700 font-extrabold text-sm sm:text-base">${outcomeBTotal}</strong>`,
+          targetNodes: ["l1b", "l2b"],
+          totalNode: null,
+          branches: ["l1b", "l2b"],
+          additionPair: ["l1b", "l2b"],
+          banner: `Part a(iii): Add both branches that end with this outcome (${nums.l1b} + ${nums.l2b} = ${outcomeBTotal}).`
+        },
+        aiv: {
+          answer: `${nums.l2a}`,
+          workingHtml: `<strong class="text-emerald-700 font-extrabold text-sm sm:text-base">${nums.l2a}</strong>`,
+          targetNodes: ["l2a"],
+          totalNode: null,
+          branches: ["b2", "l2a"],
+          banner: `Part a(iv): Follow the lower branch and then the upper outcome branch (${nums.l2a}).`
+        },
+        bi: {
+          answer: formatDecimal(nums.b1),
+          workingHtml: showWorking
+            ? makeFractionWorking(nums.b1, nums.root)
+            : `<strong class="text-emerald-700 font-extrabold text-sm sm:text-base">${formatDecimal(nums.b1)}</strong>`,
+          targetNodes: ["b1"],
+          totalNode: "root",
+          branches: ["b1"],
+          banner: `Part b(i): Divide the top branch frequency (${nums.b1}) by the total (${nums.root}).`
+        },
+        bii: {
+          answer: formatDecimal(outcomeATotal),
+          workingHtml: showWorking
+            ? makeFractionWorking(outcomeATotal, nums.root, [nums.l1a, nums.l2a])
+            : `<strong class="text-emerald-700 font-extrabold text-sm sm:text-base">${formatDecimal(outcomeATotal)}</strong>`,
+          targetNodes: ["l1a", "l2a"],
+          totalNode: "root",
+          branches: ["l1a", "l2a"],
+          additionPair: ["l1a", "l2a"],
+          banner: `Part b(ii): Add both matching leaf nodes (${nums.l1a} + ${nums.l2a} = ${outcomeATotal}), then divide by ${nums.root}.`
+        },
+        biii: {
+          answer: formatDecimal(outcomeBTotal),
+          workingHtml: showWorking
+            ? makeFractionWorking(outcomeBTotal, nums.root, [nums.l1b, nums.l2b])
+            : `<strong class="text-emerald-700 font-extrabold text-sm sm:text-base">${formatDecimal(outcomeBTotal)}</strong>`,
+          targetNodes: ["l1b", "l2b"],
+          totalNode: "root",
+          branches: ["l1b", "l2b"],
+          additionPair: ["l1b", "l2b"],
+          banner: `Part b(iii): Add both matching leaf nodes (${nums.l1b} + ${nums.l2b} = ${outcomeBTotal}), then divide by ${nums.root}.`
+        },
+        biv: {
+          answer: formatDecimal(nums.l2b),
+          workingHtml: showWorking
+            ? makeFractionWorking(nums.l2b, nums.root)
+            : `<strong class="text-emerald-700 font-extrabold text-sm sm:text-base">${formatDecimal(nums.l2b)}</strong>`,
+          targetNodes: ["l2b"],
+          totalNode: "root",
+          branches: ["b2", "l2b"],
+          banner: `Part b(iv): Take the single leaf node (${nums.l2b}) and divide by the total (${nums.root}).`
+        },
+        c: {
+          targetNodes: ["l1a", "l1b", "l2a", "l2b"],
+          totalNode: "root",
+          branches: ["l1a", "l1b", "l2a", "l2b"],
+          banner: `Part c: All 4 right-hand leaf circles cover everyone surveyed (${nums.root}/${nums.root} = 1).`
+        }
+      };
+    }
+
+    /**
+     * Renders Part A rows (i, ii, iii, iv) without horizontal truncation or vertical clipping
+     */
+    function renderPartA(q, state) {
+      const calcs = getSubQuestionCalculations(state.numbers);
+      const items = [
+        { key: "ai", numeral: "i.", text: q.partAText.i },
+        { key: "aii", numeral: "ii.", text: q.partAText.ii },
+        { key: "aiii", numeral: "iii.", text: q.partAText.iii },
+        { key: "aiv", numeral: "iv.", text: q.partAText.iv }
+      ];
+
+      const container = document.getElementById("partAList");
+      container.innerHTML = items
+        .map((item) => {
+          const isRevealed = state.revealed[item.key];
+          const isFocused = activeFocusKey === item.key;
+          const calc = calcs[item.key];
+
+          return `
+            <div class="question-row rounded-lg border border-transparent flex items-center justify-between gap-2 ${
+              isFocused ? "row-focused" : "hover:bg-slate-50/80"
+            }">
+              <div class="flex items-center gap-2 min-w-0 flex-1 overflow-visible">
+                <!-- Spotlight Node Highlight Button -->
+                <button
+                  onclick="focusQuestion('${item.key}')"
+                  title="Highlight relevant nodes on the Frequency Tree"
+                  class="w-6 h-6 rounded-md border flex items-center justify-center transition shrink-0 ${
+                    isFocused
+                      ? "bg-amber-500 text-white border-amber-600 shadow-sm"
+                      : "bg-slate-50 border-slate-200 text-slate-500 hover:bg-amber-50 hover:text-amber-700 hover:border-amber-300"
+                  }">
+                  <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2.2" viewBox="0 0 24 24">
+                    <circle cx="12" cy="12" r="3"/>
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M12 2v3m0 14v3m10-10h-3M5 12H2"/>
+                  </svg>
+                </button>
+                <span class="w-5 font-semibold text-slate-700 text-sm md:text-base shrink-0">${item.numeral}</span>
+                <span onclick="focusQuestion('${item.key}')" class="text-sm md:text-base text-slate-800 cursor-pointer leading-snug break-words">${item.text}</span>
+              </div>
+
+              <!-- Click-to-Reveal Answer Pill -->
+              <button
+                onclick="toggleReveal('${item.key}')"
+                class="reveal-pill shrink-0 min-w-[92px] rounded-lg border text-xs sm:text-sm transition-all flex items-center justify-center ${
+                  isRevealed
+                    ? "bg-emerald-50/90 border-emerald-300 text-slate-900 shadow-sm"
+                    : "bg-slate-100 hover:bg-teal-50 border-slate-200 hover:border-teal-300 text-slate-600 hover:text-teal-800 font-semibold"
+                }">
+                ${
+                  isRevealed
+                    ? calc.workingHtml
+                    : `<svg class="w-3.5 h-3.5 opacity-70" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/><path stroke-linecap="round" stroke-linejoin="round" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/></svg><span>Reveal</span>`
+                }
+              </button>
+            </div>
+          `;
+        })
+        .join("");
+    }
+
+    /**
+     * Renders Part B rows (i, ii, iii, iv) with authentic P(...) notation and no text truncation
+     */
+    function renderPartB(q, state) {
+      const calcs = getSubQuestionCalculations(state.numbers);
+      const items = [
+        { key: "bi", numeral: "i.", label: q.partBText.i, punct: "," },
+        { key: "bii", numeral: "ii.", label: q.partBText.ii, punct: "," },
+        { key: "biii", numeral: "iii.", label: q.partBText.iii, punct: "," },
+        { key: "biv", numeral: "iv.", label: q.partBText.iv, punct: "." }
+      ];
+
+      const container = document.getElementById("partBList");
+      container.innerHTML = items
+        .map((item) => {
+          const isRevealed = state.revealed[item.key];
+          const isFocused = activeFocusKey === item.key;
+          const calc = calcs[item.key];
+
+          return `
+            <div class="question-row rounded-lg border border-transparent flex items-center justify-between gap-2 ${
+              isFocused ? "row-focused" : "hover:bg-slate-50/80"
+            }">
+              <div class="flex items-center gap-2 min-w-0 flex-1 overflow-visible">
+                <!-- Spotlight Node Highlight Button -->
+                <button
+                  onclick="focusQuestion('${item.key}')"
+                  title="Highlight numerator & denominator nodes on the Frequency Tree"
+                  class="w-6 h-6 rounded-md border flex items-center justify-center transition shrink-0 ${
+                    isFocused
+                      ? "bg-amber-500 text-white border-amber-600 shadow-sm"
+                      : "bg-slate-50 border-slate-200 text-slate-500 hover:bg-amber-50 hover:text-amber-700 hover:border-amber-300"
+                  }">
+                  <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2.2" viewBox="0 0 24 24">
+                    <circle cx="12" cy="12" r="3"/>
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M12 2v3m0 14v3m10-10h-3M5 12H2"/>
+                  </svg>
+                </button>
+                <span class="w-5 font-semibold text-slate-700 text-sm md:text-base shrink-0">${item.numeral}</span>
+                <span onclick="focusQuestion('${item.key}')" class="text-sm md:text-base text-slate-900 cursor-pointer leading-snug break-words">
+                  <span class="math-p">P</span><span class="math-paren">(${item.label})</span>${item.punct}
+                </span>
+              </div>
+
+              <!-- Click-to-Reveal Answer Pill -->
+              <button
+                onclick="toggleReveal('${item.key}')"
+                class="reveal-pill shrink-0 min-w-[92px] rounded-lg border text-xs sm:text-sm transition-all flex items-center justify-center ${
+                  isRevealed
+                    ? "bg-emerald-50/90 border-emerald-300 text-slate-900 shadow-sm"
+                    : "bg-slate-100 hover:bg-teal-50 border-slate-200 hover:border-teal-300 text-slate-600 hover:text-teal-800 font-semibold"
+                }">
+                ${
+                  isRevealed
+                    ? calc.workingHtml
+                    : `<svg class="w-3.5 h-3.5 opacity-70" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/><path stroke-linecap="round" stroke-linejoin="round" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/></svg><span>Reveal</span>`
+                }
+              </button>
+            </div>
+          `;
+        })
+        .join("");
+    }
+
+    /**
+     * Renders Part C explanation box in the left column
+     */
+    function renderPartC(q, state) {
+      const box = document.getElementById("partCRevealBox");
+      const card = document.getElementById("partCCard");
+      const isRevealed = state.revealed.c;
+      const isFocused = activeFocusKey === "c";
+
+      card.classList.toggle("ring-2", isFocused);
+      card.classList.toggle("ring-amber-400", isFocused);
+
+      if (isRevealed) {
+        box.className =
+          "cursor-pointer rounded-lg border border-emerald-300 bg-emerald-50/90 px-3 py-1.5 flex items-center justify-between gap-2 w-full shadow-sm";
+        box.innerHTML = `
+          <div class="text-xs sm:text-sm text-slate-800 leading-snug">
+            ${q.partCExplanation(q, state.numbers)}
+          </div>
+          <span class="text-xs font-semibold text-emerald-700 shrink-0 underline">Hide</span>
+        `;
+      } else {
+        box.className =
+          "cursor-pointer rounded-lg border border-slate-200 bg-slate-100 hover:bg-teal-50 hover:border-teal-300 px-3 py-1.5 flex items-center justify-center gap-2 w-full transition";
+        box.innerHTML = `
+          <svg class="w-3.5 h-3.5 text-slate-600" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/>
+            <path stroke-linecap="round" stroke-linejoin="round" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/>
+          </svg>
+          <span class="text-xs sm:text-sm font-semibold text-slate-700">Click to reveal explanation</span>
+        `;
+      }
+    }
+
+    /**
+     * ============================================================================
+     * VISUAL SCAFFOLDING & SVG TREE HIGHLIGHT LOGIC
+     * ============================================================================
+     */
+    function focusQuestion(key) {
+      if (activeFocusKey === key) {
+        activeFocusKey = null;
+      } else {
+        activeFocusKey = key;
+      }
+      renderCurrentPage();
+    }
+
+    function clearFocus() {
+      activeFocusKey = null;
+      pageStates[currentPageIndex].manualNodeHighlights = {};
+      renderCurrentPage();
+    }
+
+    function updateTreeHighlights() {
+      const state = pageStates[currentPageIndex];
+      const calcs = getSubQuestionCalculations(state.numbers);
+      const allNodeIds = ["root", "b1", "b2", "l1a", "l1b", "l2a", "l2b"];
+      const allLineIds = ["b1", "b2", "l1a", "l1b", "l2a", "l2b"];
+
+      // Reset all nodes and branches
+      allNodeIds.forEach((id) => {
+        const nodeEl = document.getElementById(`node-${id}`);
+        nodeEl.classList.remove(
+          "node-highlight-target",
+          "node-highlight-total",
+          "node-highlight-manual"
+        );
+      });
+      allLineIds.forEach((id) => {
+        document.getElementById(`line-${id}`).classList.remove("branch-active");
+      });
+
+      // Hide badges and addition arc by default
+      ["root", "b1", "b2"].forEach((id) => {
+        document.getElementById(`badge-${id}`).classList.add("hidden");
+      });
+      document.getElementById("additionOverlayGroup").classList.add("hidden");
+
+      const bannerEl = document.getElementById("scaffoldingBanner");
+      const bannerText = document.getElementById("scaffoldingText");
+      const clearBtn = document.getElementById("clearFocusBtn");
+
+      // Apply manual node highlights if any
+      const manualKeys = Object.keys(state.manualNodeHighlights).filter(
+        (k) => state.manualNodeHighlights[k]
+      );
+      manualKeys.forEach((id) => {
+        document.getElementById(`node-${id}`).classList.add("node-highlight-manual");
+      });
+
+      if (!activeFocusKey) {
+        if (manualKeys.length > 0) {
+          clearBtn.classList.remove("hidden");
+          bannerText.textContent = "Teacher highlight active on selected tree node(s).";
+        } else {
+          clearBtn.classList.add("hidden");
+          bannerEl.className =
+            "inline-flex items-center gap-2 px-3 py-1 rounded-full text-xs sm:text-sm font-semibold bg-slate-100 text-slate-600 border border-slate-200 transition-all";
+          bannerText.textContent =
+            "Tip: Click any question’s spotlight icon (◎) or click tree circles to highlight values.";
+        }
+        return;
+      }
+
+      clearBtn.classList.remove("hidden");
+      const focusData = calcs[activeFocusKey];
+
+      // Update top scaffolding banner text
+      bannerEl.className =
+        "inline-flex items-center gap-2 px-3 py-1 rounded-full text-xs sm:text-sm font-bold bg-amber-50 text-amber-900 border border-amber-300 shadow-sm transition-all";
+      bannerText.textContent = focusData.banner;
+
+      // Highlight Target Nodes in place (no CSS transform scaling)
+      focusData.targetNodes.forEach((nodeId) => {
+        const el = document.getElementById(`node-${nodeId}`);
+        el.classList.add("node-highlight-target");
+      });
+
+      // Highlight Total Denominator Node if this is a probability question (Part b)
+      if (focusData.totalNode) {
+        const rootEl = document.getElementById(`node-${focusData.totalNode}`);
+        rootEl.classList.add("node-highlight-total");
+        const rootBadge = document.getElementById("badge-root");
+        document.getElementById("badge-text-root").textContent = "÷ Total";
+        rootBadge.classList.remove("hidden");
+      } else if (activeFocusKey === "ai") {
+        const rootBadge = document.getElementById("badge-root");
+        document.getElementById("badge-text-root").textContent = "Total";
+        rootBadge.classList.remove("hidden");
+      }
+
+      // Highlight connecting branches
+      focusData.branches.forEach((lineId) => {
+        const lineEl = document.getElementById(`line-${lineId}`);
+        if (lineEl) lineEl.classList.add("branch-active");
+      });
+
+      // Show dashed Addition Connector Arc when two leaf nodes are added together
+      if (focusData.additionPair) {
+        const addGroup = document.getElementById("additionOverlayGroup");
+        const arcPath = document.getElementById("additionArcPath");
+        const badgeRect = document.getElementById("additionBadgeRect");
+        const badgeText = document.getElementById("additionBadgeText");
+
+        const isTopPair = focusData.additionPair[0] === "l1a";
+        const y1 = isTopPair ? 72 : 178;
+        const y2 = isTopPair ? 272 : 378;
+        const midY = (y1 + y2) / 2;
+
+        arcPath.setAttribute(
+          "d",
+          `M 628 ${y1} C 685 ${y1}, 685 ${y2}, 628 ${y2}`
+        );
+        badgeRect.setAttribute("x", "646");
+        badgeRect.setAttribute("y", String(midY - 20));
+        badgeText.setAttribute("x", "692");
+        badgeText.setAttribute("y", String(midY + 6));
+
+        const sumVal =
+          state.numbers[focusData.additionPair[0]] +
+          state.numbers[focusData.additionPair[1]];
+        badgeText.textContent = `+ = ${sumVal}`;
+        addGroup.classList.remove("hidden");
+      }
+    }
+
+    /**
+     * Handles clicking directly on a circle in the SVG Frequency Tree
+     */
+    function handleNodeClick(nodeId) {
+      const state = pageStates[currentPageIndex];
+      if (treeMaskMode) {
+        state.maskedNodes[nodeId] = !state.maskedNodes[nodeId];
+      } else {
+        state.manualNodeHighlights[nodeId] = !state.manualNodeHighlights[nodeId];
+      }
+      renderCurrentPage();
+    }
+
+    /**
+     * Toggles whether clicking tree nodes masks/unmasks their numbers
+     */
+    function toggleTreeMaskMode() {
+      treeMaskMode = !treeMaskMode;
+      const btn = document.getElementById("treeMaskModeBtn");
+      const txt = document.getElementById("treeMaskModeText");
+
+      if (treeMaskMode) {
+        btn.className =
+          "inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-bold border border-amber-400 text-amber-900 bg-amber-100 shadow-sm transition";
+        txt.textContent = "Click Tree Circles to Hide/Show '?'";
+      } else {
+        // Restore any masked nodes when turning off mask mode
+        Object.keys(pageStates[currentPageIndex].maskedNodes).forEach((k) => {
+          pageStates[currentPageIndex].maskedNodes[k] = false;
+        });
+        btn.className =
+          "inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-semibold border border-slate-200 text-slate-600 bg-slate-50 hover:bg-slate-100 transition";
+        txt.textContent = "Tree Numbers: All Visible";
+        renderCurrentPage();
+      }
+    }
+
+    /**
+     * ============================================================================
+     * REVEAL, HIDE, WORKING TOGGLE & RANDOM NUMBER GENERATOR
+     * ============================================================================
+     */
+    function toggleReveal(key) {
+      const state = pageStates[currentPageIndex];
+      state.revealed[key] = !state.revealed[key];
+      if (state.revealed[key]) {
+        activeFocusKey = key;
+      }
+      renderCurrentPage();
+    }
+
+    function revealSection(section) {
+      const state = pageStates[currentPageIndex];
+      const keys = section === "a" ? ["ai", "aii", "aiii", "aiv"] : ["bi", "bii", "biii", "biv"];
+      const allAlreadyRevealed = keys.every((k) => state.revealed[k]);
+      keys.forEach((k) => {
+        state.revealed[k] = !allAlreadyRevealed;
+      });
+      renderCurrentPage();
+    }
+
+    function revealAll() {
+      const state = pageStates[currentPageIndex];
+      Object.keys(state.revealed).forEach((k) => {
+        state.revealed[k] = true;
+      });
+      renderCurrentPage();
+    }
+
+    function resetAll() {
+      const state = pageStates[currentPageIndex];
+      Object.keys(state.revealed).forEach((k) => {
+        state.revealed[k] = false;
+      });
+      Object.keys(state.maskedNodes).forEach((k) => {
+        state.maskedNodes[k] = false;
+      });
+      state.manualNodeHighlights = {};
+      activeFocusKey = null;
+      renderCurrentPage();
+    }
+
+    function toggleWorking() {
+      showWorking = !showWorking;
+      const btn = document.getElementById("workingToggleBtn");
+      const txt = document.getElementById("workingToggleText");
+      txt.textContent = showWorking ? "Working: ON" : "Working: OFF";
+      btn.classList.toggle("bg-teal-50", showWorking);
+      btn.classList.toggle("text-teal-800", showWorking);
+      btn.classList.toggle("border-teal-200", showWorking);
+      btn.classList.toggle("bg-slate-100", !showWorking);
+      btn.classList.toggle("text-slate-600", !showWorking);
+      renderCurrentPage();
+    }
+
+    /**
+     * Generates fresh random numbers for the current context where:
+     * - Total N is 200, 300, 400, or 500 (so k = N / 100 is 2, 3, 4, or 5)
+     * - Every leaf node is a multiple of k, ensuring every probability in Part (b)
+     *   simplifies cleanly to an exact 2-decimal-place number!
+     */
+    function generateNewNumbers() {
+      const possibleMultipliers = [2, 3, 4, 5];
+      const k = possibleMultipliers[Math.floor(Math.random() * possibleMultipliers.length)];
+      const root = 100 * k;
+
+      // Choose Branch 1 percentage between 36% and 68%
+      const b1Pct = randInt(36, 68);
+      const b2Pct = 100 - b1Pct;
+
+      // Split Branch 1 into Outcome A and Outcome B (avoiding 50/50 or tiny numbers)
+      const l1aPct = randInt(Math.max(12, Math.floor(b1Pct * 0.55)), Math.floor(b1Pct * 0.82));
+      const l1bPct = b1Pct - l1aPct;
+
+      // Split Branch 2 into Outcome A and Outcome B
+      const l2aPct = randInt(Math.max(10, Math.floor(b2Pct * 0.52)), Math.floor(b2Pct * 0.8));
+      const l2bPct = b2Pct - l2aPct;
+
+      const state = pageStates[currentPageIndex];
+      state.numbers = {
+        root: root,
+        b1: b1Pct * k,
+        b2: b2Pct * k,
+        l1a: l1aPct * k,
+        l1b: l1bPct * k,
+        l2a: l2aPct * k,
+        l2b: l2bPct * k
+      };
+
+      // Hide answers when new numbers are generated so class can solve the new problem
+      Object.keys(state.revealed).forEach((key) => {
+        state.revealed[key] = false;
+      });
+      activeFocusKey = null;
+      renderCurrentPage();
+    }
+
+    function randInt(min, max) {
+      return Math.floor(Math.random() * (max - min + 1)) + min;
+    }
+
+    /**
+     * Classroom Board Zoom & Fullscreen Controls
+     */
+    function adjustZoom(delta) {
+      zoomScale = Math.min(1.22, Math.max(0.85, zoomScale + delta));
+      document.documentElement.style.setProperty("--zoom-scale", zoomScale.toFixed(2));
+    }
+
+    function toggleFullScreen() {
+      if (!document.fullscreenElement) {
+        document.documentElement.requestFullscreen().catch(() => {});
+      } else {
+        document.exitFullscreen().catch(() => {});
+      }
+    }
+
+    // Start app on load
+    window.onload = initApp;
+  </script>
+</body>
+</html>
